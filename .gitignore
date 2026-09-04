@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Production Builds
+dist/
+*/dist/
+.next/
+*/.next/
+out/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*/.env
+*/.env.local
+
+# Portable tools and databases (Postgres, Redis binaries & data)
+tools/
+dump.rdb
+backend/dump.rdb
+
+# Zip archives and large backup files
+*.zip
+*.tar.gz
+*.rar
+
+# Uploads & temporary runtime files
+uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript cache
+*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
+
+# OS metadata & IDEs
+.DS_Store
+._*
+.idea/
+.vscode/
+.claude/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
