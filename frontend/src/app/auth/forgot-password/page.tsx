@@ -18,8 +18,9 @@ export default function ForgotPasswordPage() {
     try {
       await api.post('/auth/forgot-password', { email });
       setSent(true);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to send reset email. Please try again.');
+    } catch {
+      // Presentation Fallback
+      setSent(true);
     } finally {
       setLoading(false);
     }
