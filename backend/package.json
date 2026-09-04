@@ -21,7 +21,13 @@
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "migration:generate": "npm run typeorm -- migration:generate -d",
     "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert"
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "db:setup": "ts-node scripts/setup-database.ts",
+    "seed:sources": "ts-node scripts/seed-scraping-sources.ts",
+    "seed:admin": "ts-node scripts/seed-admin-user.ts",
+    "seed:tenders": "ts-node scripts/seed-sample-tenders.ts",
+    "seed": "ts-node scripts/seed-scraping-sources.ts && ts-node scripts/seed-sample-tenders.ts && ts-node scripts/seed-admin-user.ts",
+    "test:system": "ts-node scripts/test-live-system.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1070.0",
