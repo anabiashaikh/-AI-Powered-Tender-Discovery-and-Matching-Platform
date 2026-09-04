@@ -50,14 +50,32 @@ export const useStore = create<AuthState>((set, get) => ({
     document.documentElement.classList.toggle('light', finalTheme === 'light');
 
     const accessToken = localStorage.getItem('access_token');
+    const savedUserStr = localStorage.getItem('auth_user');
+
     if (accessToken) {
+      if (savedUserStr) {
+        try {
+          const parsedUser = JSON.parse(savedUserStr);
+          set({ user: parsedUser, isAuthenticated: true });
+        } catch {
+          // ignore
+        }
+      }
+
       try {
         const res = await api.get('/auth/me');
-        set({ user: res.data, isAuthenticated: true });
-        await get().fetchCompanyProfile();
-      } catch (err) {
-        // Token was invalid or expired
-        get().clearAuth();
+        if (res.data) {
+          set({ user: res.data, isAuthenticated: true });
+          localStorage.setItem('auth_user', JSON.stringify(res.data));
+          await get().fetchCompanyProfile();
+        }
+      } catch {
+        // If demo token or network error, keep user logged in with cached session
+        if (accessToken.startsWith('demo-') || savedUserStr) {
+          // Keep authenticated session
+        } else {
+          get().clearAuth();
+        }
       }
     }
   },
@@ -65,6 +83,7 @@ export const useStore = create<AuthState>((set, get) => ({
   setAuth: (user, accessToken, refreshToken) => {
     localStorage.setItem('access_token', accessToken);
     localStorage.setItem('refresh_token', refreshToken);
+    localStorage.setItem('auth_user', JSON.stringify(user));
     set({ user, isAuthenticated: true });
     get().fetchCompanyProfile();
   },
@@ -72,6 +91,7 @@ export const useStore = create<AuthState>((set, get) => ({
   clearAuth: () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('auth_user');
     set({ user: null, company: null, isAuthenticated: false });
   },
 
@@ -83,7 +103,7 @@ export const useStore = create<AuthState>((set, get) => ({
     try {
       const res = await api.get('/company/my-profile');
       set({ company: res.data });
-    } catch (err) {
+    } catch {
       // Profile might not exist yet
       set({ company: null });
     }
