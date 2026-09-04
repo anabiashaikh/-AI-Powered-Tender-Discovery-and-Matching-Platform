@@ -21,43 +21,103 @@ import { ScrapingModule } from './scraping/scraping.module';
     CommonModule,
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env', '../.env'],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DATABASE_HOST'),
-        port: configService.get('DATABASE_PORT'),
-        username: configService.get('DATABASE_USERNAME'),
-        password: configService.get('DATABASE_PASSWORD'),
-        database: configService.get('DATABASE_NAME'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get('DATABASE_SYNCHRONIZE') === 'true',
-        logging: configService.get('DATABASE_LOGGING') === 'true',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const isSsl = configService.get('DATABASE_SSL') === 'true' || databaseUrl?.includes('sslmode=require');
+
+        if (databaseUrl) {
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            ssl: isSsl ? { rejectUnauthorized: false } : undefined,
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
+            synchronize: configService.get('DATABASE_SYNCHRONIZE') === 'true',
+            logging: configService.get('DATABASE_LOGGING') === 'true',
+          };
+        }
+
+        return {
+          type: 'postgres',
+          host: configService.get('DATABASE_HOST') || configService.get('DB_HOST') || 'localhost',
+          port: parseInt(configService.get('DATABASE_PORT') || configService.get('DB_PORT') || '5432', 10),
+          username: configService.get('DATABASE_USERNAME') || configService.get('DB_USERNAME') || 'postgres',
+          password: configService.get('DATABASE_PASSWORD') || configService.get('DB_PASSWORD') || 'postgres',
+          database: configService.get('DATABASE_NAME') || configService.get('DB_DATABASE') || 'tender_discovery',
+          ssl: isSsl ? { rejectUnauthorized: false } : undefined,
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          synchronize: configService.get('DATABASE_SYNCHRONIZE') === 'true',
+          logging: configService.get('DATABASE_LOGGING') === 'true',
+        };
+      },
       inject: [ConfigService],
     }),
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get('REDIS_HOST'),
-          port: configService.get('REDIS_PORT'),
-          password: configService.get('REDIS_PASSWORD') || undefined,
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get<string>('REDIS_URL');
+        const redisHost = configService.get('REDIS_HOST') || 'localhost';
+        const redisPort = parseInt(configService.get('REDIS_PORT') || '6379', 10);
+        const redisPassword = configService.get('REDIS_PASSWORD') || configService.get('UPSTASH_REDIS_REST_TOKEN') || undefined;
+        const isTls = configService.get('REDIS_TLS') === 'true' || redisHost.includes('upstash.io') || redisUrl?.startsWith('rediss://');
+
+        if (redisUrl) {
+          return {
+            redis: redisUrl,
+          };
+        }
+
+        return {
+          redis: {
+            host: redisHost,
+            port: redisPort,
+            password: redisPassword,
+            tls: isTls ? { rejectUnauthorized: false } : undefined,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     RedisModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        config: {
-          host: configService.get('REDIS_HOST') || 'localhost',
-          port: parseInt(configService.get('REDIS_PORT') || '6379'),
-          password: configService.get('REDIS_PASSWORD') || undefined,
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get<string>('REDIS_URL');
+        const redisHost = configService.get('REDIS_HOST');
+        const redisPort = parseInt(configService.get('REDIS_PORT') || '6379', 10);
+        const redisPassword = configService.get('REDIS_PASSWORD') || configService.get('UPSTASH_REDIS_REST_TOKEN') || undefined;
+        const isTls = configService.get('REDIS_TLS') === 'true' || redisHost?.includes('upstash.io') || redisUrl?.startsWith('rediss://');
+
+        if (redisUrl) {
+          return {
+            type: 'single',
+            url: redisUrl,
+          };
+        }
+
+        if (!redisHost) {
+          return {
+            type: 'single',
+            options: {
+              host: 'localhost',
+              port: 6379,
+            },
+            skipConnect: true,
+          };
+        }
+
+        return {
+          type: 'single',
+          options: {
+            host: redisHost,
+            port: redisPort,
+            password: redisPassword,
+            tls: isTls ? { rejectUnauthorized: false } : undefined,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     ScheduleModule.forRoot(),
