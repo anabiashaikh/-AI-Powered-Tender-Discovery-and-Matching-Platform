@@ -85,32 +85,22 @@ import { ScrapingModule } from './scraping/scraping.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const redisUrl = configService.get<string>('REDIS_URL');
-        const redisHost = configService.get('REDIS_HOST');
+        const redisHost = configService.get('REDIS_HOST') || 'localhost';
         const redisPort = parseInt(configService.get('REDIS_PORT') || '6379', 10);
         const redisPassword = configService.get('REDIS_PASSWORD') || configService.get('UPSTASH_REDIS_REST_TOKEN') || undefined;
-        const isTls = configService.get('REDIS_TLS') === 'true' || redisHost?.includes('upstash.io') || redisUrl?.startsWith('rediss://');
+        const isTls = configService.get('REDIS_TLS') === 'true' || redisHost.includes('upstash.io') || redisUrl?.startsWith('rediss://');
 
         if (redisUrl) {
           return {
-            type: 'single',
-            url: redisUrl,
-          };
-        }
-
-        if (!redisHost) {
-          return {
-            type: 'single',
-            options: {
-              host: 'localhost',
-              port: 6379,
+            config: {
+              url: redisUrl,
+              tls: isTls ? { rejectUnauthorized: false } : undefined,
             },
-            skipConnect: true,
           };
         }
 
         return {
-          type: 'single',
-          options: {
+          config: {
             host: redisHost,
             port: redisPort,
             password: redisPassword,

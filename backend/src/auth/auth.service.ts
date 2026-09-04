@@ -163,6 +163,53 @@ export class AuthService {
 
   // Login User
   async login(loginDto: LoginDto, ip?: string, userAgent?: string): Promise<AuthResponseDto> {
+    // Temporary Presentation / Demo Mode Fallback
+    const isDemoMode = this.configService.get<string>('DEMO_MODE') === 'true';
+    const demoEmail = (this.configService.get<string>('DEMO_EMAIL') || 'admin@tenderdiscovery.com').trim();
+    const demoPassword = this.configService.get<string>('DEMO_PASSWORD') || 'Admin123!';
+
+    if (
+      isDemoMode &&
+      loginDto.email?.trim().toLowerCase() === demoEmail.toLowerCase() &&
+      loginDto.password === demoPassword
+    ) {
+      this.logger.log(`Demo presentation login initiated for: ${demoEmail}`);
+
+      const demoUser = {
+        id: '00000000-0000-0000-0000-000000000001',
+        email: demoEmail,
+        first_name: 'Admin',
+        last_name: 'Demo',
+        role: 'admin',
+      };
+
+      const payload = {
+        sub: demoUser.id,
+        email: demoUser.email,
+        role: demoUser.role,
+        is_demo: true,
+      };
+
+      const access_token = this.jwtService.sign(payload, {
+        expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES_IN') || '7d',
+      });
+
+      const refresh_token = crypto.randomBytes(64).toString('hex');
+
+      return {
+        access_token,
+        refresh_token,
+        user: {
+          id: demoUser.id,
+          email: demoUser.email,
+          first_name: demoUser.first_name,
+          last_name: demoUser.last_name,
+          role: demoUser.role,
+        },
+      };
+    }
+
+    // Normal Database Authentication
     const user = await this.usersRepository.findOne({
       where: { email: loginDto.email },
     });
@@ -537,7 +584,21 @@ export class AuthService {
     }
   }
 
-  async validateUser(userId: string): Promise<User> {
+  async validateUser(userId: string): Promise<User | any> {
+    const isDemoMode = this.configService.get<string>('DEMO_MODE') === 'true';
+    const demoEmail = (this.configService.get<string>('DEMO_EMAIL') || 'admin@tenderdiscovery.com').trim();
+
+    if (isDemoMode && userId === '00000000-0000-0000-0000-000000000001') {
+      return {
+        id: '00000000-0000-0000-0000-000000000001',
+        email: demoEmail,
+        first_name: 'Admin',
+        last_name: 'Demo',
+        role: 'admin',
+        is_active: true,
+      };
+    }
+
     const user = await this.usersRepository.findOne({
       where: { id: userId },
     });
