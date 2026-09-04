@@ -1,20 +1,14 @@
-import { Client } from 'pg';
+import { createDbClient } from './db-config';
 
 async function applySchemaUpdates() {
-  const client = new Client({
-    host: 'localhost',
-    port: 5432,
-    user: 'postgres',
-    password: 'postgres',
-    database: 'tender_discovery',
-  });
+  const client = createDbClient();
 
   try {
     await client.connect();
-    console.log('Connected to PostgreSQL');
+    console.log('✓ Connected to PostgreSQL');
 
     // Add new columns to tenders table
-    console.log('Adding new columns to tenders table...');
+    console.log('\nAdding new columns to tenders table...');
     
     const tenderUpdates = [
       'ALTER TABLE tenders ADD COLUMN IF NOT EXISTS country VARCHAR(100)',
@@ -28,11 +22,11 @@ async function applySchemaUpdates() {
       try {
         await client.query(sql);
         console.log(`✓ Applied: ${sql}`);
-      } catch (error) {
-        if (error.message.includes('already exists')) {
+      } catch (error: any) {
+        if (error?.message?.includes('already exists')) {
           console.log(`- Skipped (already exists): ${sql}`);
         } else {
-          console.error(`✗ Failed: ${sql} - ${error.message}`);
+          console.error(`✗ Failed: ${sql} - ${error?.message}`);
         }
       }
     }
@@ -41,7 +35,7 @@ async function applySchemaUpdates() {
     console.log('\nAdding new columns to scraping_sources table...');
     
     const sourceUpdates = [
-      'ALTER TABLE scraping_sources ADD COLUMN IF NOT EXISTS region VARCHAR(50) CHECK (region IN (\'canada\', \'worldwide\'))',
+      "ALTER TABLE scraping_sources ADD COLUMN IF NOT EXISTS region VARCHAR(50) CHECK (region IN ('canada', 'worldwide'))",
       'ALTER TABLE scraping_sources ADD COLUMN IF NOT EXISTS last_success_at TIMESTAMP',
       'ALTER TABLE scraping_sources ADD COLUMN IF NOT EXISTS last_error_at TIMESTAMP',
       'ALTER TABLE scraping_sources ADD COLUMN IF NOT EXISTS last_error_message TEXT',
@@ -54,11 +48,11 @@ async function applySchemaUpdates() {
       try {
         await client.query(sql);
         console.log(`✓ Applied: ${sql}`);
-      } catch (error) {
-        if (error.message.includes('already exists')) {
+      } catch (error: any) {
+        if (error?.message?.includes('already exists')) {
           console.log(`- Skipped (already exists): ${sql}`);
         } else {
-          console.error(`✗ Failed: ${sql} - ${error.message}`);
+          console.error(`✗ Failed: ${sql} - ${error?.message}`);
         }
       }
     }
@@ -76,17 +70,17 @@ async function applySchemaUpdates() {
       try {
         await client.query(sql);
         console.log(`✓ Applied: ${sql}`);
-      } catch (error) {
-        console.error(`✗ Failed: ${sql} - ${error.message}`);
+      } catch (error: any) {
+        console.error(`✗ Failed: ${sql} - ${error?.message}`);
       }
     }
 
     console.log('\n✓ Schema updates completed successfully');
-  } catch (error) {
-    console.error('Error applying schema updates:', error);
-    process.exit(1);
+  } catch (error: any) {
+    console.error('Error applying schema updates:', error?.message || error);
+    process.exitCode = 1;
   } finally {
-    await client.end();
+    await client.end().catch(() => {});
     console.log('Disconnected from PostgreSQL');
   }
 }

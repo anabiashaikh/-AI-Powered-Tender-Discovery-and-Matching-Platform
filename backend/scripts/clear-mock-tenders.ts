@@ -1,23 +1,21 @@
-import { Client } from 'pg';
+import { createDbClient } from './db-config';
 
 async function clearMockTenders() {
-  const client = new Client({
-    host: 'localhost',
-    port: 5432,
-    user: 'postgres',
-    password: 'postgres',
-    database: 'tender_discovery',
-  });
+  const client = createDbClient();
 
   try {
     await client.connect();
-    console.log('Connected to PostgreSQL');
+    console.log('✓ Connected to PostgreSQL');
 
-    console.log('\nClearing all tender data...');
+    console.log('\nClearing all tender and matching data...');
+
+    // Delete all tender matches & notifications first if they reference tenders
+    await client.query('DELETE FROM notifications WHERE tender_id IS NOT NULL').catch(() => {});
+    await client.query('DELETE FROM tender_matches').catch(() => {});
 
     // Delete all tenders
     const result = await client.query('DELETE FROM tenders');
-    console.log(`✓ Deleted ${result.rowCount} tenders`);
+    console.log(`✓ Deleted ${result.rowCount ?? 0} tenders`);
 
     // Reset scraping sources health stats
     await client.query(`
@@ -34,14 +32,14 @@ async function clearMockTenders() {
 
     // Verify no tenders remain
     const countResult = await client.query('SELECT COUNT(*) as count FROM tenders');
-    console.log(`\nCurrent tender count: ${countResult.rows[0].count}`);
+    console.log(`\nCurrent tender count in database: ${countResult.rows[0].count}`);
 
     console.log('\n✓ All mock tender data cleared successfully');
-  } catch (error) {
-    console.error('Error clearing mock tenders:', error);
-    process.exit(1);
+  } catch (error: any) {
+    console.error('❌ Error clearing mock tenders:', error?.message || error);
+    process.exitCode = 1;
   } finally {
-    await client.end();
+    await client.end().catch(() => {});
     console.log('\nDisconnected from PostgreSQL');
   }
 }

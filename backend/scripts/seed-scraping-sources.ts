@@ -1,6 +1,6 @@
-import { Client } from 'pg';
+import { createDbClient } from './db-config';
 
-interface ScrapingSource {
+interface ScrapingSourceItem {
   name: string;
   url: string;
   region: 'canada' | 'worldwide';
@@ -8,7 +8,7 @@ interface ScrapingSource {
   is_active: boolean;
 }
 
-const sources: ScrapingSource[] = [
+const sources: ScrapingSourceItem[] = [
   // Canada Sources
   {
     name: 'CanadaBuys',
@@ -77,32 +77,22 @@ const sources: ScrapingSource[] = [
 ];
 
 async function seedScrapingSources() {
-  const client = new Client({
-    host: 'localhost',
-    port: 5432,
-    user: 'postgres',
-    password: 'postgres',
-    database: 'tender_discovery',
-  });
+  const client = createDbClient();
 
   try {
     await client.connect();
-    console.log('Connected to PostgreSQL');
+    console.log('✓ Connected to PostgreSQL');
 
     console.log('\nSeeding scraping sources...');
     
     for (const source of sources) {
       try {
-        // Check if source already exists
         const checkResult = await client.query(
           'SELECT id FROM scraping_sources WHERE name = $1',
           [source.name]
         );
 
         if (checkResult.rows.length > 0) {
-          console.log(`- Source "${source.name}" already exists, skipping`);
-          
-          // Update if needed
           await client.query(
             `UPDATE scraping_sources 
              SET url = $1, region = $2, scraping_frequency = $3, is_active = $4, updated_at = CURRENT_TIMESTAMP
@@ -110,18 +100,16 @@ async function seedScrapingSources() {
             [source.url, source.region, source.scraping_frequency, source.is_active, source.name]
           );
           console.log(`  ✓ Updated "${source.name}"`);
-          continue;
+        } else {
+          await client.query(
+            `INSERT INTO scraping_sources (name, url, region, scraping_frequency, is_active, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            [source.name, source.url, source.region, source.scraping_frequency, source.is_active]
+          );
+          console.log(`✓ Added "${source.name}"`);
         }
-
-        // Insert new source
-        await client.query(
-          `INSERT INTO scraping_sources (name, url, region, scraping_frequency, is_active, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-          [source.name, source.url, source.region, source.scraping_frequency, source.is_active]
-        );
-        console.log(`✓ Added "${source.name}"`);
-      } catch (error) {
-        console.error(`✗ Failed to add "${source.name}": ${error.message}`);
+      } catch (error: any) {
+        console.error(`✗ Failed to add/update "${source.name}": ${error?.message || error}`);
       }
     }
 
@@ -144,12 +132,12 @@ async function seedScrapingSources() {
       console.log(`  - ${source.name} (${source.is_active ? 'Active' : 'Inactive'}) - ${source.url}`);
     }
 
-    console.log('\n✓ Seeding completed successfully');
-  } catch (error) {
-    console.error('Error seeding scraping sources:', error);
-    process.exit(1);
+    console.log('\n✓ Seeding scraping sources completed successfully');
+  } catch (error: any) {
+    console.error('❌ Error seeding scraping sources:', error?.message || error);
+    process.exitCode = 1;
   } finally {
-    await client.end();
+    await client.end().catch(() => {});
     console.log('\nDisconnected from PostgreSQL');
   }
 }

@@ -1,37 +1,5 @@
-import { Client, ClientConfig } from 'pg';
 import * as crypto from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
-
-// Helper to safely load .env if process.env values are not set
-function loadEnvFile() {
-  const envPath = path.resolve(__dirname, '../.env');
-  const rootEnvPath = path.resolve(__dirname, '../../.env');
-  const targetPath = fs.existsSync(envPath) ? envPath : (fs.existsSync(rootEnvPath) ? rootEnvPath : null);
-
-  if (targetPath) {
-    try {
-      const content = fs.readFileSync(targetPath, 'utf8');
-      content.split('\n').forEach((line) => {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#') && trimmed.includes('=')) {
-          const idx = trimmed.indexOf('=');
-          const key = trimmed.substring(0, idx).trim();
-          let val = trimmed.substring(idx + 1).trim();
-          if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
-          if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
-          if (!process.env[key]) {
-            process.env[key] = val;
-          }
-        }
-      });
-    } catch (e) {
-      console.warn('Could not read .env file:', e.message);
-    }
-  }
-}
-
-loadEnvFile();
+import { createDbClient } from './db-config';
 
 const sampleTenders = [
   {
@@ -189,31 +157,8 @@ const sampleTenders = [
   }
 ];
 
-function getClientConfig(): ClientConfig {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (databaseUrl) {
-    const isSsl = process.env.DATABASE_SSL === 'true' || databaseUrl.includes('sslmode=require');
-    return {
-      connectionString: databaseUrl,
-      ssl: isSsl ? { rejectUnauthorized: false } : undefined,
-    };
-  }
-
-  const isSsl = process.env.DATABASE_SSL === 'true';
-  return {
-    host: process.env.DATABASE_HOST || process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DATABASE_PORT || process.env.DB_PORT || '5432', 10),
-    user: process.env.DATABASE_USERNAME || process.env.DATABASE_USER || process.env.DB_USERNAME || 'postgres',
-    password: process.env.DATABASE_PASSWORD || process.env.DATABASE_PASS || process.env.DB_PASSWORD || 'postgres',
-    database: process.env.DATABASE_NAME || process.env.DB_DATABASE || 'tender_discovery',
-    ssl: isSsl ? { rejectUnauthorized: false } : undefined,
-  };
-}
-
 async function seed() {
-  const config = getClientConfig();
-  console.log(`Connecting to PostgreSQL at ${config.host || 'DATABASE_URL'}...`);
-  const client = new Client(config);
+  const client = createDbClient();
 
   try {
     await client.connect();
@@ -277,15 +222,15 @@ async function seed() {
     for (const row of categoryBreakdown.rows) {
       console.log(`  - ${row.category || 'Uncategorized'}: ${row.count}`);
     }
-  } catch (error) {
-    console.error('❌ Error seeding tenders:', error.message || error);
+  } catch (error: any) {
+    console.error('❌ Error seeding tenders:', error?.message || error);
     process.exitCode = 1;
   } finally {
-    await client.end();
+    await client.end().catch(() => {});
   }
 }
 
-seed().catch((err) => {
-  console.error('Fatal error in seed script:', err);
+seed().catch((err: any) => {
+  console.error('Fatal error in seed script:', err?.message || err);
   process.exit(1);
 });

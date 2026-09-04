@@ -10,7 +10,7 @@ import { MerxScraper } from '../src/scraping/scrapers/merx.scraper';
 import { BiddingoScraper } from '../src/scraping/scrapers/biddingo.scraper';
 
 async function testScrapers() {
-  console.log('Launching browser...');
+  console.log('Launching Playwright browser...');
   const browser = await chromium.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -51,15 +51,15 @@ async function testScrapers() {
       if (result.tenders.length > 0) {
         console.log(`Sample tender:`, JSON.stringify(result.tenders[0], null, 2));
       }
-    } catch (error) {
-      console.error(`Scraper ${item.name} crashed with error:`, error);
+    } catch (error: any) {
+      console.error(`Scraper ${item.name} crashed with error:`, error?.message || error);
     } finally {
       await page.close();
     }
   }
 
   await browser.close();
-  console.log('\nTesting completed.');
+  console.log('\n✓ Scraper testing completed.');
 }
 
-testScrapers().catch(console.error);
+testScrapers().catch((err: any) => console.error('Fatal testing error:', err?.message || err));

@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
 
-const urls = {
+const urls: Record<string, string> = {
   UNGM: 'https://www.ungm.org/Public/Notice',
   ADB: 'https://www.adb.org/projects/tenders',
   AfDB: 'https://www.afdb.org/en/projects-and-operations/procurement/specific-procurement-notices',
@@ -52,8 +52,7 @@ async function inspectPages() {
         }
       }
 
-      // Check if there are tables inside common containers
-      // Let's find links containing 'Notice' or 'Opportunity' or 'tender'
+      // Find links containing tender-related terms
       const links = await page.locator('a[href]').all();
       console.log(`Total links: ${links.length}`);
       
@@ -68,19 +67,18 @@ async function inspectPages() {
       }
       console.log('\nTender-related links on page:', sampleLinks);
 
-      // Print some class names of elements that look like lists or rows
       const rows = await page.locator('.views-row, .notice-row, .tender-row, .opportunity-row, .search-result, .list-item, tr').all();
       console.log(`Common row selectors matched: ${rows.length}`);
 
-    } catch (error) {
-      console.error(`Failed to inspect ${name}:`, error.message);
+    } catch (error: any) {
+      console.error(`Failed to inspect ${name}:`, error?.message || error);
     } finally {
       await page.close();
     }
   }
 
   await browser.close();
-  console.log('Inspection complete.');
+  console.log('\n✓ Inspection complete.');
 }
 
-inspectPages().catch(console.error);
+inspectPages().catch((err: any) => console.error('Fatal inspection error:', err?.message || err));

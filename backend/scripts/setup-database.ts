@@ -1,55 +1,52 @@
-import { Client } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createDbClient, loadEnv } from './db-config';
 
 async function setupDatabase() {
-  const admin = new Client({
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: parseInt(process.env.DATABASE_PORT || '5432'),
-    user: process.env.DATABASE_USERNAME || 'postgres',
-    password: process.env.DATABASE_PASSWORD || 'postgres',
-    database: 'postgres',
-  });
+  loadEnv();
+  const dbName = process.env.DATABASE_NAME || process.env.DB_DATABASE || 'tender_discovery';
 
-  const dbName = process.env.DATABASE_NAME || 'tender_discovery';
-
+  // 1. Check or create the database using the maintenance connection
+  const adminClient = createDbClient('postgres');
   try {
-    await admin.connect();
-    const exists = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]);
+    await adminClient.connect();
+    const exists = await adminClient.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]);
     if (exists.rows.length === 0) {
-      await admin.query(`CREATE DATABASE ${dbName}`);
-      console.log(`Created database: ${dbName}`);
+      await adminClient.query(`CREATE DATABASE ${dbName}`);
+      console.log(`✓ Created database: ${dbName}`);
     } else {
-      console.log(`Database already exists: ${dbName}`);
+      console.log(`✓ Database already exists: ${dbName}`);
     }
+  } catch (err: any) {
+    console.warn(`Note when checking database existence: ${err?.message || err}`);
   } finally {
-    await admin.end();
+    await adminClient.end().catch(() => {});
   }
 
-  const client = new Client({
-    host: process.env.DATABASE_HOST || 'localhost',
-    port: parseInt(process.env.DATABASE_PORT || '5432'),
-    user: process.env.DATABASE_USERNAME || 'postgres',
-    password: process.env.DATABASE_PASSWORD || 'postgres',
-    database: dbName,
-  });
-
+  // 2. Connect to the target database and apply schema
+  const client = createDbClient();
   try {
     await client.connect();
+    console.log(`✓ Connected to ${dbName}`);
+
     const schemaPath = path.join(__dirname, '../database/schema.sql');
+    if (!fs.existsSync(schemaPath)) {
+      throw new Error(`schema.sql not found at ${schemaPath}`);
+    }
+
     const schema = fs.readFileSync(schemaPath, 'utf8');
     await client.query(schema);
-    console.log('Schema applied successfully');
+    console.log('✓ Schema applied successfully');
 
     const tables = await client.query(
       "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename",
     );
-    console.log(`Tables (${tables.rows.length}):`, tables.rows.map((r) => r.tablename).join(', '));
-  } catch (error) {
-    console.error('Schema setup error:', error.message);
-    process.exit(1);
+    console.log(`✓ Total Tables (${tables.rows.length}):`, tables.rows.map((r: any) => r.tablename).join(', '));
+  } catch (error: any) {
+    console.error('❌ Schema setup error:', error?.message || error);
+    process.exitCode = 1;
   } finally {
-    await client.end();
+    await client.end().catch(() => {});
   }
 }
 

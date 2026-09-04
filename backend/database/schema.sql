@@ -250,17 +250,23 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_company_profiles_updated_at ON company_profiles;
 CREATE TRIGGER update_company_profiles_updated_at BEFORE UPDATE ON company_profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_scraping_sources_updated_at ON scraping_sources;
 CREATE TRIGGER update_scraping_sources_updated_at BEFORE UPDATE ON scraping_sources
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_tenders_updated_at ON tenders;
 CREATE TRIGGER update_tenders_updated_at BEFORE UPDATE ON tenders
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_tender_matches_updated_at ON tender_matches;
 CREATE TRIGGER update_tender_matches_updated_at BEFORE UPDATE ON tender_matches
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
